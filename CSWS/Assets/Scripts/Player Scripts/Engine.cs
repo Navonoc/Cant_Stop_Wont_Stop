@@ -21,6 +21,7 @@ public class Engine : MonoBehaviour
     public float[] RPMIncrease;
     public float[] StartForce;
     public float[] dropRate;
+    public float[] minSpeeds;
 
     /* *** Accumulator VARS *** */
     float accelTime; // this is the amount of time the throttle has been held down for
@@ -33,6 +34,7 @@ public class Engine : MonoBehaviour
     bool InGear;
     bool Throttle;
     bool Stalled;
+    bool Slipping;
     bool Steering;
     float outForce; //this is the force output with each turn of the engine
     float CurrentTimer;
@@ -145,7 +147,7 @@ public class Engine : MonoBehaviour
     }
     void RPSUpdate()
     {
-        if (Throttle == true) { engineRPS += RPMIncrease[CurrentGear] * accelTime*accelTime * Time.deltaTime; }
+        if (Throttle == true) { engineRPS += RpmIncrease() * Time.deltaTime; }
         else { engineRPS -= dropRate[CurrentGear] * Time.deltaTime; }
         if (engineRPS >= 95) { engineRPS = 95; }
         if (engineRPS <= 17) { engineRPS = 17; }
@@ -153,8 +155,8 @@ public class Engine : MonoBehaviour
 
     void MeshGears(int gear)
     {
-        if(gear == 0) { }
-        if(gear == 1) { }
+        if(gear == 0) { engineRPS = 17.0f; }
+        if(gear == 1) { engineRPS = 17.0f; }
     }
     void AddDragForce()
     {
@@ -180,6 +182,16 @@ public class Engine : MonoBehaviour
         print("Engine_Started");
     }
 
+    float RpmIncrease()
+    {
+        float increase;
+        float VelocityInFwdDir = Vector3.Dot(rgd.velocity, rgd.transform.forward); //this is the magnitude of our speed in the current facing direction
+        print ("velFwd: "+VelocityInFwdDir);
+        if(VelocityInFwdDir >= minSpeeds[CurrentGear]) { increase = RPMIncrease[CurrentGear] * accelTime; }
+        else { increase = 0; }
+
+        return increase;
+    }
     void StopEngine()
     {
 
