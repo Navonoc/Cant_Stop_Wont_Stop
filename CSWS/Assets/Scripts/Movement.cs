@@ -33,10 +33,13 @@ public class Movement : MonoBehaviour
     private float supplementaryForceMag;
 
     /* *** ENGINE VARS *** */
-    public Vector3[] Gears;
+    public float[] peakTorque;
+    public float rateOfIncrease;
+
 
     /* *** CONFIG VARS *** */
     public float ringRotationSpeed; // Average rotation speed over time
+    public int engineRPM;
     public int currentGear;
     public float maxEngineForce;
     public float minEngineForce;
@@ -45,13 +48,14 @@ public class Movement : MonoBehaviour
     public float minCentArrowDist;
     public float turnSpeed;
     public float dragForceScalar;
-    public float centForceScalar;
     public float centForceMax;
     private float maxVelocity;
     private float minVelocity;
     private float gradVelocity;
     private float mouseInput;
     private Vector3 currentVel;
+    private bool clutchDown;
+    private bool engineOff;
 
     /*
      * ///////  ///////  ///////
@@ -60,18 +64,18 @@ public class Movement : MonoBehaviour
      */
     void Start()
     {
-        currentGear = 0;
-        maxVelocity = Gears[currentGear].x;
-        minVelocity = Gears[currentGear].y;
-        CentL.transform.position = inds.transform.position + inds.transform.right * -minCentArrowDist;
-        CentR.transform.position = inds.transform.position + inds.transform.right * minCentArrowDist;
-        gradVelocity = Gears[currentGear].z;
         rgd = GetComponent<Rigidbody>();
         playerRoot = GetComponent<GameObject>();
+        engineOff = true;
     }
 
     void Update()
     {
+        if (Input.GetKeyDown(KeyCode.I))
+        {
+            engineOff = false;
+            engineRPM = 1000;
+        }
         currentVel = rgd.velocity;
         if (Input.GetKeyDown(KeyCode.L) && Cursor.lockState == CursorLockMode.None)
         {
@@ -81,19 +85,26 @@ public class Movement : MonoBehaviour
         {
             Cursor.lockState = CursorLockMode.None;
         }
+        if (Input.GetKeyDown(KeyCode.LeftShift))
+        {
+            clutchDown = true;
+        }
         if(CheckGasPedal() == true)
         {
             AddEngineForce();
         }
-        else
+
+        if (Input.GetKeyDown(KeyCode.E) && clutchDown == true)
         {
-            CalcEngineForce(minEngineForce);
+            currentGear += 1;
         }
+
+            AddEngineForce();
+        
         AddDragForce();
-        mouseInput = Input.GetAxis("Horizontal");
-        AddCentripetalForce();
+        
         if (Steering == true) { RotatePlayer(); }
-        RotateRing();
+        RotateRing(engineRPM);
         AllignIndicators();
     }
     /*
@@ -101,31 +112,26 @@ public class Movement : MonoBehaviour
     * /////// - ACTIONS - ///////
     * ///////  /////////  ///////
     */
-    void AddCentripetalForce()
-    {
-        rgd.AddForce(CalcCentripetalForce());
-    }
     void RotatePlayer()
     {
         rgd.transform.Rotate(new Vector3(0, turnSpeed * Time.deltaTime * mouseInput, 0));
 
     }
-    void RotateRing()
+    void RotateRing(int current)
     {
-        ring.transform.Rotate(new Vector3(RingRotation(engineForceMag), 0, 0));
+        ring.transform.Rotate(new Vector3(RingRotation(current), 0, 0));
     }
     void AddEngineForce()
     {
-        CalcEngineForce(maxEngineForce);
-        rgd.AddForce(engineDir * engineForceMag * ((maxVelocity - rgd.velocity.magnitude)/maxVelocity-minVelocity) * Time.deltaTime);
+        CalcRPMChange();
+        rgd.AddForce(engineDir * torqueCurve1(engineRPM) * Time.deltaTime);
     }
     void AddDragForce()
     {
-        rgd.AddForce(-1.0f * rgd.velocity.normalized * CalcDragForce() * dragForceScalar * Time.deltaTime);
+        rgd.AddForce(-1.0f * rgd.velocity.normalized * CalcDragForce() * Time.deltaTime);
     }
     void AllignIndicators()
     {
-        arrow.transform.position = ArrowVect();
         arc.transform.position = ArcVect();
     }
     /*
@@ -147,13 +153,7 @@ public class Movement : MonoBehaviour
             print("Function Called: " + FuncDesc + " Result: " +Result);
         }
     }
-    Vector3 ArrowVect()
-    {
-        Vector3 Dir = new Vector3(rgd.velocity.x,0,rgd.velocity.z);
-        float Dist = maxArrowDist * (rgd.velocity.magnitude / (maxVelocity - minVelocity));
-        Dir = inds.transform.position + Dir.normalized * Dist;
-        return Dir;
-    }
+
     Vector3 ArcVect()
     {
         Vector3 Dir = transform.forward;
@@ -175,15 +175,11 @@ public class Movement : MonoBehaviour
      * /////// - CALCS - ///////
      * ///////  ///////  ///////
      */
-    float RingRotation(float current)
+    float RingRotation(int current)
     {
         float ringRotation = ringRotationSpeed * current * Time.deltaTime;
         DebugPrints("Ring Rotation Equations. current ring rotation", ringRotation.ToString());
         return ringRotation;
-    }
-    void CalcSupplementaryForce()
-    {
-        DebugPrints("Supplementary Force calculations");
     }
     float CalcDragForce()
     {
@@ -193,28 +189,14 @@ public class Movement : MonoBehaviour
         DebugPrints("Drag Force calculations", dragForceMag.ToString());
         return dragForceMag;
     }
-    Vector3 CalcCentripetalForce()
+    void CalcRPMChange()
     {
-        float currentAngle = Vector3.Dot(centripetalForceDir, currentVel);
-        DebugPrints("Centripetal Force calculations");
-        centripetalForceDir = rgd.transform.right * Mathf.Clamp(Vector3.Dot(centripetalForceDir, currentVel), -1.0f, 1.0f);
-        centripetalForceMag = Vector3.Dot(centripetalForceDir, currentVel) * centForceScalar * Time.deltaTime;
-        if(currentAngle <= 0)
-        {
-            //Left
-            CentL.transform.position = inds.transform.position + centripetalForceDir * currentAngle;
-        }
-        else if(currentAngle >= 0)
-        {
-            //Right
-            CentR.transform.position = inds.transform.position + centripetalForceDir * currentAngle;
-        }
-        return centripetalForceDir * centripetalForceMag;
+        engineRPM += Mathf.RoundToInt(rateOfIncrease);
+        if(engineRPM >= 5000) { engineRPM = 5000; }
     }
-    void CalcEngineForce(float magnitude)
+
+    float torqueCurve1(int RPM)
     {
-        engineDir = transform.forward;
-        engineForceMag = magnitude;
-        DebugPrints("Engine Force calculationsS", engineDir.ToString());
+        return ((RPM / 5000) * peakTorque[currentGear]) * (RPM/60.0f);
     }
 }
