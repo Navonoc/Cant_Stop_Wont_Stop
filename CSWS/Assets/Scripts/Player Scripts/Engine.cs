@@ -429,7 +429,7 @@ public class Engine : MonoBehaviour
     float RpmIncrease()
     {
         float increase;
-
+        print(MinV() - config.MinVPadding);
         if (velocityInFwdDir >= (MinV()-config.MinVPadding)) { increase = RPMIncrease[CurrentGear] * IncreasePercent((engineRPS-config.MinRPS)/(config.MaxRPS - config.MinRPS)); RPSIncreasing = true; }
         else { increase = 0; }
 
@@ -437,7 +437,9 @@ public class Engine : MonoBehaviour
     }
     float IncreasePercent(float Val)
     {
-        return 1 - (MathF.Pow(2 * (Val - 0.5f), 2));
+        float result = 1 - (MathF.Pow(2 * (Val - 0.5f), 2));
+        if(result < 0.1f) result = 0.1f;
+        return result;
     }
     void StallTimer()
     {
