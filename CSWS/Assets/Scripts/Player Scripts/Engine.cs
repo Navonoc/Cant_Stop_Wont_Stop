@@ -133,6 +133,7 @@ public class Engine : MonoBehaviour
     void MouseSteering()/*Config Var >> */{ if (config.MouseSteering){
 
         playerRotation = Input.GetAxis("Horizontal");
+        //print(CalcRequiredVelChange());
         if (Input.GetKeyDown(KeyCode.L)) //if the player presses L change the cursor lock state.
         {
             KeyPressed("L", 0);/*DEBUG FUNCTIONS*/
@@ -228,6 +229,7 @@ public class Engine : MonoBehaviour
     void WorldActions()
     {
         AddDragForce(/*OUTPUT FUNCTIONS (Real)*/);
+        CalcRequiredVelChange( );
     }
     #endregion
     #region Finialised
@@ -412,16 +414,23 @@ public class Engine : MonoBehaviour
     {
         return 0.5f * config.densOfAir * rgd.velocity.magnitude * rgd.velocity.magnitude * config.dragCoefficient * Mathf.PI * 0.25f;
     }/*returns the current magnitude of drag force generated from velocity values && config values(dragCoefficient & densOfAir)*/
+    float CalcRequiredVelChange()
+    {
+        float val = Vector3.Dot(rgd.velocity, rgd.transform.right);
+        if (val <= config.MaxDeltaP) {rgd.AddForce(val * -rgd.transform.right, ForceMode.Impulse);}
+        return val;
+    }/*returns the required change in velocity required for a  perfect turn*/
+    float CalcLerpForce(float VDif)
+    {
+        float LerpRaw = (2 * Mathf.Pow(VDif, 3) - 3 * Mathf.Pow(VDif, 2) + 1) * accelTime;
+        //print("Vdif: " + VDif + "Lerp Val: " + LerpRaw);
+        return LerpRaw;
+    }
     #endregion
     #region Finialised
 
     #endregion
-    float CalcLerpForce(float VDif)
-    {
-        float LerpRaw = (2*Mathf.Pow(VDif,3) - 3 * Mathf.Pow(VDif, 2) +1) * accelTime;
-        print("Vdif: " + VDif + "Lerp Val: " + LerpRaw );
-        return LerpRaw;
-    }
+
 
     /// /// Calculation Functions (Changes) /// ///
     /// /// /// /// /// //// /// /// ///
@@ -429,7 +438,7 @@ public class Engine : MonoBehaviour
     float RpmIncrease()
     {
         float increase;
-        print(MinV() - config.MinVPadding);
+        //print(MinV() - config.MinVPadding);
         if (velocityInFwdDir >= (MinV()-config.MinVPadding)) { increase = RPMIncrease[CurrentGear] * IncreasePercent((engineRPS-config.MinRPS)/(config.MaxRPS - config.MinRPS)); RPSIncreasing = true; }
         else { increase = 0; }
 

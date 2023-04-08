@@ -29,6 +29,7 @@ public class Config : MonoBehaviour
     public float MaxAccelTime;
     public float engSpinUpTime;
     public float MinVPadding;
+    public float MaxDeltaP;
 
     public float dragCoefficient = 0.5f;
     public float densOfAir = 1.293f;
